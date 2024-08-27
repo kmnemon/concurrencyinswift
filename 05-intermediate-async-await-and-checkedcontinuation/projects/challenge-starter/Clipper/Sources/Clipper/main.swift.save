@@ -31,9 +31,6 @@
 /// THE SOFTWARE.
 
 import Foundation
-extension String: Error { }
-
-
 // Makes the default session requests not time out.
 let liveURLSession: URLSession = {
   let configuration = URLSessionConfiguration.default
@@ -51,15 +48,7 @@ Task {
   let url = URL(string: "http://localhost:8080/cli/chat?\(username)")!
   do {
     // Loop over the server response lines and print them.
-      let (stream, response) = try await liveURLSession.bytes(from: url)
-      guard (response as? HTTPURLResponse)?.statusCode == 200 else {
-        throw "The server responded with an error."
-      }
-      
-      for try await line in stream.lines {
-          print(line)
-      }
-    
+1    
   } catch {
     print(error.localizedDescription)
     exit(1)
@@ -70,18 +59,6 @@ Task {
   let url = URL(string: "http://localhost:8080/cli/say")!
   
   // Loop over the lines in the standard input and send them to the server.
-    for try await line in FileHandle.standardInput.bytes.lines {
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.httpBody = "[\(username)] \(line)".data(using: .utf8)
-        
-        do {
-          _ = try await URLSession.shared.data(for: request, delegate: nil)
-        } catch {
-          print(error.localizedDescription)
-          exit(1)
-        }
-    }
   
 }
 
