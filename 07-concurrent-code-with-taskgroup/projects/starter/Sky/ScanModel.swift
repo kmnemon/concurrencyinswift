@@ -1,4 +1,4 @@
-/// Copyright (c) 2023 Kodeco Inc.
+/// Copyright (c) 2023 Kodeco Inc
 ///
 /// Permission is hereby granted, free of charge, to any person obtaining a copy
 /// of this software and associated documentation files (the "Software"), to deal
@@ -32,54 +32,50 @@
 
 import Foundation
 
-/// A catch-all URL protocol that returns successful response and records all requests.
-class TestURLProtocol: URLProtocol {
-  static var lastRequest: URLRequest? {
-    didSet {
-      if let request = lastRequest {
-        continuation?.yield(request)
-      }
-    }
-  }
-  
-  static private var continuation: AsyncStream<URLRequest>.Continuation?
-  
-  static var requests: AsyncStream<URLRequest> = {
-    AsyncStream { continuation in
-      TestURLProtocol.continuation = continuation
-    }
-  }()
-  
-  
-  override class func canInit(with request: URLRequest) -> Bool {
-    return true
-  }
+class ScanModel: ObservableObject {
+  // MARK: - Private state
+  private var counted = 0
+  private var started = Date()
 
-  override class func canonicalRequest(for request: URLRequest) -> URLRequest {
-    return request
-  }
+  // MARK: - Public, bindable state
 
-  /// Store the URL request and send success response back to the client.
-  override func startLoading() {
-    guard let client = client,
-      let url = request.url,
-      let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)
-      else { fatalError("Client or URL missing") }
+  /// Currently scheduled for execution tasks.
+  @MainActor @Published var scheduled = 0
 
-    client.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-    client.urlProtocol(self, didLoad: Data())
-    client.urlProtocolDidFinishLoading(self)
-    
-    guard let stream = request.httpBodyStream else {
-      fatalError("Unexpected test scenario")
-    }
-    var request = request
-    request.httpBody = stream.data
-    Self.lastRequest = request
-    
-    
+  /// Completed scan tasks per second.
+  @MainActor @Published var countPerSecond: Double = 0
+
+  /// Completed scan tasks.
+  @MainActor @Published var completed = 0
+
+  @Published var total: Int
+
+  @MainActor @Published var isCollaborating = false
+
+  // MARK: - Methods
+
+  init(total: Int, localName: String) {
+    self.total = total
   }
 
-  override func stopLoading() {
+  func runAllTasks() async throws {
+    started = Date()
+  }
+}
+
+// MARK: - Tracking task progress.
+extension ScanModel {
+  @MainActor
+  private func onTaskCompleted() {
+    completed += 1
+    counted += 1
+    scheduled -= 1
+
+    countPerSecond = Double(counted) / Date().timeIntervalSince(started)
+  }
+
+  @MainActor
+  private func onScheduled() {
+    scheduled += 1
   }
 }

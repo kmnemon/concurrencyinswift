@@ -1,4 +1,4 @@
-/// Copyright (c) 2023 Kodeco Inc.
+/// Copyright (c) 2023 Kodeco Inc
 ///
 /// Permission is hereby granted, free of charge, to any person obtaining a copy
 /// of this software and associated documentation files (the "Software"), to deal
@@ -30,56 +30,39 @@
 /// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 /// THE SOFTWARE.
 
-import Foundation
+import SwiftUI
 
-/// A catch-all URL protocol that returns successful response and records all requests.
-class TestURLProtocol: URLProtocol {
-  static var lastRequest: URLRequest? {
-    didSet {
-      if let request = lastRequest {
-        continuation?.yield(request)
-      }
+/// A view that displays the amount of total, completed, and avg. per second scan tasks.
+struct ScanningView: View {
+  @Binding var total: Int
+  @Binding var completed: Int
+  @Binding var perSecond: Double
+  @Binding var scheduled: Int
+
+  private func colorForAvg(_ num: Int) -> Color {
+    switch num {
+    case 0..<5: return .red
+    case 5..<10: return .yellow
+    case 10...: return .green
+    default: return .gray
     }
   }
-  
-  static private var continuation: AsyncStream<URLRequest>.Continuation?
-  
-  static var requests: AsyncStream<URLRequest> = {
-    AsyncStream { continuation in
-      TestURLProtocol.continuation = continuation
+
+  var body: some View {
+    VStack(alignment: .leading) {
+      ProgressView("\(scheduled) scheduled", value: Double(min(scheduled, total)), total: Double(total))
+        .tint(colorForAvg(scheduled))
+        .padding()
+
+      ProgressView(String(format: "%.2f per sec.", perSecond), value: min(perSecond, 10), total: 10)
+        .tint(colorForAvg(Int(perSecond)))
+        .padding()
+
+      ProgressView("\(completed) tasks completed", value: min(1.0, Double(completed) / Double(total)))
+        .tint(Color.blue)
+        .padding()
     }
-  }()
-  
-  
-  override class func canInit(with request: URLRequest) -> Bool {
-    return true
-  }
-
-  override class func canonicalRequest(for request: URLRequest) -> URLRequest {
-    return request
-  }
-
-  /// Store the URL request and send success response back to the client.
-  override func startLoading() {
-    guard let client = client,
-      let url = request.url,
-      let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)
-      else { fatalError("Client or URL missing") }
-
-    client.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-    client.urlProtocol(self, didLoad: Data())
-    client.urlProtocolDidFinishLoading(self)
-    
-    guard let stream = request.httpBodyStream else {
-      fatalError("Unexpected test scenario")
-    }
-    var request = request
-    request.httpBody = stream.data
-    Self.lastRequest = request
-    
-    
-  }
-
-  override func stopLoading() {
+    .font(.callout)
+    .padding()
   }
 }

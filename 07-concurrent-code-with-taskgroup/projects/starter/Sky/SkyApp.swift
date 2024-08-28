@@ -1,4 +1,4 @@
-/// Copyright (c) 2023 Kodeco Inc.
+/// Copyright (c) 2023 Kodeco Inc
 ///
 /// Permission is hereby granted, free of charge, to any person obtaining a copy
 /// of this software and associated documentation files (the "Software"), to deal
@@ -30,56 +30,74 @@
 /// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 /// THE SOFTWARE.
 
-import Foundation
+import SwiftUI
+import Combine
 
-/// A catch-all URL protocol that returns successful response and records all requests.
-class TestURLProtocol: URLProtocol {
-  static var lastRequest: URLRequest? {
+@main
+struct SkyApp: App {
+  @ObservedObject
+  var scanModel = ScanModel(total: 20, localName: UIDevice.current.name)
+
+  @State var isScanning = false
+
+  /// The last error message that happened.
+  @State var lastMessage = "" {
     didSet {
-      if let request = lastRequest {
-        continuation?.yield(request)
+      isDisplayingMessage = true
+    }
+  }
+  @State var isDisplayingMessage = false
+
+  var body: some Scene {
+    WindowGroup {
+      NavigationView {
+        VStack {
+          TitleView()
+
+          Text("Scanning deep space")
+            .font(.subheadline)
+
+          ScanningView(
+            total: $scanModel.total,
+            completed: $scanModel.completed,
+            perSecond: $scanModel.countPerSecond,
+            scheduled: $scanModel.scheduled
+          )
+
+          Button(action: {
+            Task {
+              isScanning = true
+              do {
+                let start = Date().timeIntervalSinceReferenceDate
+                try await scanModel.runAllTasks()
+                let end = Date().timeIntervalSinceReferenceDate
+                lastMessage = String(
+                  format: "Finished %d scans in %.2f seconds.",
+                  scanModel.total,
+                  end - start
+                )
+              } catch {
+                lastMessage = error.localizedDescription
+              }
+              isScanning = false
+            }
+          }, label: {
+            HStack(spacing: 6) {
+              if isScanning { ProgressView() }
+              Text("Engage systems")
+            }
+          })
+          .buttonStyle(.bordered)
+          .disabled(isScanning)
+        }
+        .alert("Message", isPresented: $isDisplayingMessage, actions: {
+          Button("Close", role: .cancel) { }
+        }, message: {
+          Text(lastMessage)
+        })
+        .padding()
+        .statusBar(hidden: true)
       }
     }
-  }
-  
-  static private var continuation: AsyncStream<URLRequest>.Continuation?
-  
-  static var requests: AsyncStream<URLRequest> = {
-    AsyncStream { continuation in
-      TestURLProtocol.continuation = continuation
-    }
-  }()
-  
-  
-  override class func canInit(with request: URLRequest) -> Bool {
-    return true
-  }
-
-  override class func canonicalRequest(for request: URLRequest) -> URLRequest {
-    return request
-  }
-
-  /// Store the URL request and send success response back to the client.
-  override func startLoading() {
-    guard let client = client,
-      let url = request.url,
-      let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)
-      else { fatalError("Client or URL missing") }
-
-    client.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-    client.urlProtocol(self, didLoad: Data())
-    client.urlProtocolDidFinishLoading(self)
-    
-    guard let stream = request.httpBodyStream else {
-      fatalError("Unexpected test scenario")
-    }
-    var request = request
-    request.httpBody = stream.data
-    Self.lastRequest = request
-    
-    
-  }
-
-  override func stopLoading() {
   }
 }

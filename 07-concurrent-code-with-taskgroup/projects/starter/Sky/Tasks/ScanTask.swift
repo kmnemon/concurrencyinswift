@@ -1,4 +1,4 @@
-/// Copyright (c) 2023 Kodeco Inc.
+/// Copyright (c) 2023 Kodeco Inc
 ///
 /// Permission is hereby granted, free of charge, to any person obtaining a copy
 /// of this software and associated documentation files (the "Software"), to deal
@@ -32,54 +32,27 @@
 
 import Foundation
 
-/// A catch-all URL protocol that returns successful response and records all requests.
-class TestURLProtocol: URLProtocol {
-  static var lastRequest: URLRequest? {
-    didSet {
-      if let request = lastRequest {
-        continuation?.yield(request)
+/// A single scanning task.
+struct ScanTask: Identifiable {
+  let id: UUID
+  let input: Int
+
+  init(input: Int, id: UUID = UUID()) {
+    self.id = id
+    self.input = input
+  }
+
+  /// A method that performs the scanning.
+  /// > Note: This is a mock method that just suspends for a second.
+  func run() async -> String {
+    await Task {
+      // Block the thread as a real heavy-computation function will.
+      await withUnsafeContinuation { continuation in
+        Thread.sleep(forTimeInterval: 1)
+        continuation.resume()
       }
-    }
-  }
-  
-  static private var continuation: AsyncStream<URLRequest>.Continuation?
-  
-  static var requests: AsyncStream<URLRequest> = {
-    AsyncStream { continuation in
-      TestURLProtocol.continuation = continuation
-    }
-  }()
-  
-  
-  override class func canInit(with request: URLRequest) -> Bool {
-    return true
-  }
+    }.value
 
-  override class func canonicalRequest(for request: URLRequest) -> URLRequest {
-    return request
-  }
-
-  /// Store the URL request and send success response back to the client.
-  override func startLoading() {
-    guard let client = client,
-      let url = request.url,
-      let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)
-      else { fatalError("Client or URL missing") }
-
-    client.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-    client.urlProtocol(self, didLoad: Data())
-    client.urlProtocolDidFinishLoading(self)
-    
-    guard let stream = request.httpBodyStream else {
-      fatalError("Unexpected test scenario")
-    }
-    var request = request
-    request.httpBody = stream.data
-    Self.lastRequest = request
-    
-    
-  }
-
-  override func stopLoading() {
+    return "\(input)"
   }
 }
