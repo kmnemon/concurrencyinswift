@@ -15,7 +15,7 @@
 /// Software in any work that is designed, intended, or marketed for pedagogical or
 /// instructional purposes related to programming, coding, application development,
 /// or information technology.  Permission for such use, copying, modification,
-  
+import SwiftUI
 
 @main
 struct LittleJohnApp: App {
